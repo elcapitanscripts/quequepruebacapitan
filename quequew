@@ -1,1 +1,210 @@
+-- ============================================
+-- TELEPORT MENU - Auto Execute Style
+-- URL: quequew (GitHub Raw)
+-- ============================================
 
+-- ====== CONFIG ======
+local PLACE_ID = 0 -- 0 = todos los juegos
+local DESTINO_NOMBRE = "TeleportPoint"
+local ALTURA_EXTRA = 5
+local SCRIPT_URL = "https://raw.githubusercontent.com/elcapitanscripts/quequepruebacapitan/refs/heads/main/quequew"
+-- ====================
+
+-- Esperar LocalPlayer
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    Players:GetPropertyChangedSignal("LocalPlayer"):Wait()
+    LocalPlayer = Players.LocalPlayer
+end
+
+-- Auto-re-ejecución al cambiar de servidor (queue_on_teleport)
+pcall(function()
+    if queue_on_teleport then
+        queue_on_teleport(string.format(
+            'loadstring(game:HttpGet("%s"))()',
+            SCRIPT_URL
+        ))
+    end
+end)
+
+-- Anti-duplicados
+getgenv().TP_MENU_LOADED = getgenv().TP_MENU_LOADED or false
+if getgenv().TP_MENU_LOADED then return end
+getgenv().TP_MENU_LOADED = true
+
+-- Verificar PlaceId
+if PLACE_ID ~= 0 and game.PlaceId ~= PLACE_ID then
+    LocalPlayer:Kick("Script no soportado en este juego.")
+    return
+end
+
+-- Esperar que cargue el juego
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- Esperar personaje
+if not LocalPlayer.Character then
+    LocalPlayer.CharacterAdded:Wait()
+end
+local character = LocalPlayer.Character
+character:WaitForChild("HumanoidRootPart")
+
+-- ============================================
+-- INTERFAZ
+-- ============================================
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TP_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 240, 0, 300)
+Frame.Position = UDim2.new(0, 20, 0, 100)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = Frame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Title.BorderSizePixel = 0
+Title.Text = "⚡ Teleport"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.Parent = Frame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = Title
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -20, 1, -50)
+Scroll.Position = UDim2.new(0, 10, 0, 45)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 4
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.Parent = Frame
+
+local List = Instance.new("UIListLayout")
+List.Padding = UDim.new(0, 6)
+List.SortOrder = Enum.SortOrder.LayoutOrder
+List.Parent = Scroll
+
+local function CreateButton(text, callback, order)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -8, 0, 35)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.LayoutOrder = order
+    btn.Parent = Scroll
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(60, 60, 85)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(45, 45, 60)}):Play()
+    end)
+    btn.MouseButton1Click:Connect(function()
+        pcall(callback)
+    end)
+    return btn
+end
+
+-- ====== FUNCIONES ======
+local function TP(cf)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.CFrame = cf + Vector3.new(0, ALTURA_EXTRA, 0)
+end
+
+-- ====== BOTONES ======
+local orden = 1
+
+CreateButton("📍 Ir a " .. DESTINO_NOMBRE, function()
+    local part = workspace:FindFirstChild(DESTINO_NOMBRE, true)
+    if part and part:IsA("BasePart") then
+        TP(part.CFrame)
+    else
+        Title.Text = "❌ No encontrado"
+        task.wait(1.5)
+        Title.Text = "⚡ Teleport"
+    end
+end, orden); orden += 1
+
+CreateButton("🏠 Ir al Spawn", function()
+    local sp = workspace:FindFirstChildOfClass("SpawnLocation")
+    if sp then TP(sp.CFrame) end
+end, orden); orden += 1
+
+CreateButton("☁️ Ir al Cielo", function()
+    TP(CFrame.new(0, 500, 0))
+end, orden); orden += 1
+
+local savedPos
+CreateButton("💾 Guardar Posición", function()
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        savedPos = char.HumanoidRootPart.CFrame
+        Title.Text = "✅ Guardado"
+        task.wait(1.2)
+        Title.Text = "⚡ Teleport"
+    end
+end, orden); orden += 1
+
+CreateButton("↩️ Volver", function()
+    if savedPos then TP(savedPos) end
+end, orden); orden += 1
+
+local clickMode = false
+local clickBtn = CreateButton("🖱️ Click TP: OFF", function()
+    clickMode = not clickMode
+    clickBtn.Text = "🖱️ Click TP: " .. (clickMode and "ON" or "OFF")
+    clickBtn.BackgroundColor3 = clickMode and Color3.fromRGB(0, 150, 80) or Color3.fromRGB(45, 45, 60)
+end, orden); orden += 1
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp or not clickMode then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        local cam = workspace.CurrentCamera
+        local ray = cam:ScreenPointToRay(input.Position.X, input.Position.Y)
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {LocalPlayer.Character}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        local hit = workspace:Raycast(ray.Origin, ray.Direction * 5000, params)
+        if hit then TP(CFrame.new(hit.Position)) end
+    end
+end)
+
+List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, List.AbsoluteContentSize.Y + 10)
+end)
+
+print("[TP Menu] Cargado ✅ | queue_on_teleport: " .. tostring(queue_on_teleport ~= nil))
